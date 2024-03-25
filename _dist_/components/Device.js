@@ -3,6 +3,7 @@ import {fetchDevice, useAsync} from "../irdb.js";
 import {EncodeIR} from "../wasm/EncodeIR.js";
 const Puck = window.Puck;
 Puck.debug = 3;
+let puckIRStr = "Puck.IR();";
 export const Device = ({path}) => {
   const fns = useAsync(() => fetchDevice(path), [path]);
   const [fn, setFn] = useState();
@@ -11,7 +12,10 @@ export const Device = ({path}) => {
     if (send)
       await emit(fn2);
   };
-  return /* @__PURE__ */ React.createElement(React.Fragment, null, /* @__PURE__ */ React.createElement("div", {
+  return /* @__PURE__ */ React.createElement(React.Fragment, null, "//Output of Puck.IR command", /* @__PURE__ */ React.createElement("div", {
+    className: "m-2 mt-8 flex justify-between gap-4 flex-col md:flex-row",
+    dangerouslySetInnerHTML: {__html: `${puckIRStr}`}
+  }), /* @__PURE__ */ React.createElement("div", {
     className: "m-2 mt-8 flex justify-between gap-4 flex-col md:flex-row"
   }, /* @__PURE__ */ React.createElement("div", null, /* @__PURE__ */ React.createElement(FnVis, {
     fn
@@ -82,10 +86,13 @@ const emit = async (fn) => {
   } else {
     last = fn;
     const millis = await decode(fn);
+    let irStr = `[${millis.map((n) => n.toFixed(2)).join(",")}]`;
+    puckIRStr = `Puck.IR(${irStr});\\n`;
+    console.log(puckIRStr);
     await Puck.write(`    
         LED3.set();
         function repeat() {
-          Puck.IR([${millis.map((n) => n.toFixed(2)).join(",")}])
+          Puck.IR(${irStr});
         };
         repeat();
         LED3.reset();
