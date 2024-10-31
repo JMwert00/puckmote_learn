@@ -2,7 +2,6 @@
   "imports": {
     "papaparse": "./papaparse.js",
     "react": "./react.js",
-    "react-dom": "./react-dom.js",
-    "react-icons/fa": "./react-icons/fa.js"
+    "react-dom": "./react-dom.js"
   }
 }

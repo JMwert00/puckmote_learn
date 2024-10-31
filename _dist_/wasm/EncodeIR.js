@@ -19,8 +19,7 @@ export const EncodeIR = async (protocol, D, S, F) => {
 
   let v = ''
   printer = (val) => v = val;
-  let r = Module.encode(protocol, D, S, F);
-  if (r !== 0) r = Module.encode(protocol.toLocaleLowerCase(), D, S, F);
+  const r = Module.encode(protocol, D, S, F)
 
   if (r === 0) {
     return v
