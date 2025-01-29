@@ -72,13 +72,19 @@ const Button = ({fn, trigger}) => {
 };
 const FnVis = ({fn}) => {
   const [m, setM] = useState([]);
-  useEffect(() => {
-    if (fn)
-      decode(fn).then(setM);
-  }, [fn]);
+  let text = "–";
   let x = 0;
   const scale = 3;
-  const text = fn ? `${fn.protocol} ${fn.device} ${fn.subdevice} ${fn.function}` : "–";
+  try {
+    useEffect(() => {
+      if (fn)
+        decode(fn).then(setM);
+    }, [fn]);
+    text = fn ? `${fn.protocol} ${fn.device} ${fn.subdevice} ${fn.function}` : "–";
+  } catch (err) {
+    text = "Problem decoding IR code: " + err;
+    console.error(text);
+  }
   return /* @__PURE__ */ React.createElement("div", {
     className: "flex flex-col"
   }, /* @__PURE__ */ React.createElement("div", null, text), /* @__PURE__ */ React.createElement("svg", {
@@ -100,8 +106,13 @@ const FnVis = ({fn}) => {
   })));
 };
 const decode = async (fn) => {
-  const result = await EncodeIR(fn.protocol, parseInt(fn.device, 10), parseInt(fn.subdevice, 10), parseInt(fn.function, 10));
-  return result.split(" ").map(parseFloat).map((v) => v / 1e3);
+  try {
+    const result = await EncodeIR(fn.protocol, parseInt(fn.device, 10), parseInt(fn.subdevice, 10), parseInt(fn.function, 10));
+    return result.split(" ").map(parseFloat).map((v) => v / 1e3);
+  } catch (err) {
+    console.error("Problem decoding IR code: " + err);
+    throw err;
+  }
 };
 let last = null;
 const emit = async (fn, setPuckIRStr, showCopyFeedback) => {
@@ -109,19 +120,24 @@ const emit = async (fn, setPuckIRStr, showCopyFeedback) => {
     await Puck.write("repeat();\nLED2.set();setTimeout(() => LED2.reset(), 500)\n");
   } else {
     last = fn;
-    const millis = await decode(fn);
-    let irStr = `[${millis.map((n) => n.toFixed(2)).join(",")}]`;
-    const newPuckIRStr = `Puck.IR(${irStr});\\n`;
-    setPuckIRStr(newPuckIRStr);
-    navigator.clipboard.writeText(newPuckIRStr);
-    showCopyFeedback();
-    await Puck.write(`
-        LED3.set();
-        function repeat() {
-          Puck.IR(${irStr});
-        };
-        repeat();
-        LED3.reset();
-      `);
+    try {
+      const millis = await decode(fn);
+      let irStr = `[${millis.map((n) => n.toFixed(2)).join(",")}]`;
+      const newPuckIRStr = `Puck.IR(${irStr});\\n`;
+      setPuckIRStr(newPuckIRStr);
+      navigator.clipboard.writeText(newPuckIRStr);
+      showCopyFeedback();
+      await Puck.write(`
+          LED3.set();
+          function repeat() {
+            Puck.IR(${irStr});
+          };
+          repeat();
+          LED3.reset();
+        `);
+    } catch (err) {
+      setPuckIRStr("Problem decoding IR code: " + err);
+      showCopyFeedback();
+    }
   }
 };
