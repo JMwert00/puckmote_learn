@@ -1,4 +1,5 @@
 import React, {useEffect, useState} from "../../_snowpack/pkg/react.js";
+import {FaRegCopy, FaCheck} from "../../_snowpack/pkg/react-icons/fa.js";
 import {fetchDevice, useAsync} from "../irdb.js";
 import {EncodeIR} from "../wasm/EncodeIR.js";
 const Puck = window.Puck;
@@ -6,10 +7,22 @@ Puck.debug = 3;
 export const Device = ({path}) => {
   const fns = useAsync(() => fetchDevice(path), [path]);
   const [fn, setFn] = useState();
+  const [puckIRStr, setPuckIRStr] = useState("Puck.IR();");
+  const [buttonLabel, setButtonLabel] = useState("Copy code");
   const trigger = async (fn2, send) => {
     setFn(fn2);
     if (send)
-      await emit(fn2);
+      await emit(fn2, setPuckIRStr, showCopyFeedback);
+  };
+  const showCopyFeedback = () => {
+    setButtonLabel("Copied!");
+    setTimeout(() => {
+      setButtonLabel("Copy code");
+    }, 1500);
+  };
+  const handleCopyClick = async () => {
+    await navigator.clipboard.writeText(puckIRStr);
+    showCopyFeedback();
   };
   return /* @__PURE__ */ React.createElement(React.Fragment, null, /* @__PURE__ */ React.createElement("div", {
     className: "m-2 mt-8 flex justify-between gap-4 flex-col md:flex-row"
@@ -25,7 +38,22 @@ export const Device = ({path}) => {
     key: i,
     fn: fn2,
     trigger
-  })))));
+  }))), /* @__PURE__ */ React.createElement("div", {
+    className: "dark:bg-gray-600 p-2 rounded"
+  }, /* @__PURE__ */ React.createElement("div", {
+    className: "p-1"
+  }, 'Copy this text to the "AsTeRICS Grid Puck Action":'), /* @__PURE__ */ React.createElement("div", {
+    className: "dark:bg-gray-900 p-1 flex justify-end"
+  }, /* @__PURE__ */ React.createElement("button", {
+    onClick: handleCopyClick,
+    className: "bg-gray-600 hover:bg-gray-400 rounded p-1 flex items-center text-sm"
+  }, buttonLabel === "Copy code" ? /* @__PURE__ */ React.createElement(React.Fragment, null, /* @__PURE__ */ React.createElement(FaRegCopy, {
+    className: "mr-1"
+  }), buttonLabel) : /* @__PURE__ */ React.createElement(React.Fragment, null, /* @__PURE__ */ React.createElement(FaCheck, {
+    className: "mr-1"
+  }), buttonLabel))), /* @__PURE__ */ React.createElement("div", {
+    className: "dark:bg-gray-800 p-2 pr-12 break-words word-break[break-all]"
+  }, puckIRStr))));
 };
 const Button = ({fn, trigger}) => {
   const [active, setActive] = useState(false);
@@ -76,16 +104,21 @@ const decode = async (fn) => {
   return result.split(" ").map(parseFloat).map((v) => v / 1e3);
 };
 let last = null;
-const emit = async (fn) => {
+const emit = async (fn, setPuckIRStr, showCopyFeedback) => {
   if (last === fn) {
     await Puck.write("repeat();\nLED2.set();setTimeout(() => LED2.reset(), 500)\n");
   } else {
     last = fn;
     const millis = await decode(fn);
-    await Puck.write(`    
+    let irStr = `[${millis.map((n) => n.toFixed(2)).join(",")}]`;
+    const newPuckIRStr = `Puck.IR(${irStr});\\n`;
+    setPuckIRStr(newPuckIRStr);
+    navigator.clipboard.writeText(newPuckIRStr);
+    showCopyFeedback();
+    await Puck.write(`
         LED3.set();
         function repeat() {
-          Puck.IR([${millis.map((n) => n.toFixed(2)).join(",")}])
+          Puck.IR(${irStr});
         };
         repeat();
         LED3.reset();
